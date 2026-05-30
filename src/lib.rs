@@ -62,10 +62,8 @@ pub fn sort_vcf(input: &Path, output: &mut dyn io::Write) -> Result<u64> {
     };
 
     let mut header_lines: Vec<Vec<u8>> = Vec::new();
-    // contig ID → rank (0-based, insertion order)
     let mut contig_rank: HashMap<Vec<u8>, usize> = HashMap::new();
     let mut records: Vec<Record> = Vec::new();
-    // rank assigned to contigs not in header (assigned on first appearance)
     let mut unknown_contigs: HashMap<Vec<u8>, usize> = HashMap::new();
 
     for raw_line in data.split(|&b| b == b'\n') {
@@ -85,7 +83,6 @@ pub fn sort_vcf(input: &Path, output: &mut dyn io::Write) -> Result<u64> {
             continue;
         }
 
-        // Minimal parse: only CHROM, POS, REF, ALT needed for sort key; full raw line is re-emitted.
         let t1 = nth_tab(line, 1)
             .ok_or_else(|| RsomicsError::InvalidInput("VCF record missing POS column".into()))?;
         let t2 = nth_tab(line, 2)
@@ -128,8 +125,7 @@ pub fn sort_vcf(input: &Path, output: &mut dyn io::Write) -> Result<u64> {
         });
     }
 
-    // Unknown-contig ranks were assigned as 0-based appearance indices during parsing;
-    // shift them past all declared contigs so they sort last.
+    // Unknown-contig ranks are 0-based appearance indices; shift past all declared so they sort last.
     let declared_count = contig_rank.len();
     if !unknown_contigs.is_empty() {
         for rec in &mut records {
@@ -143,7 +139,6 @@ pub fn sort_vcf(input: &Path, output: &mut dyn io::Write) -> Result<u64> {
         }
     }
 
-    // Stable sort: (contig_rank, pos, ref, alt)
     records.sort_by(|a, b| {
         a.contig_rank
             .cmp(&b.contig_rank)
